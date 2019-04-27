@@ -17,7 +17,7 @@
 
 from mycroft import MycroftSkill, intent_handler
 from adapt.intent import IntentBuilder
-#~ from mycroft.util import LOG
+#~ from mycroft.util.log import LOG
 
 import re
 from subprocess import run, PIPE
@@ -30,6 +30,7 @@ class Calcurse(MycroftSkill):
         .require('what')
         .require('calendar'))
     def handle_read(self, message):
+        # Retrieve appointments
         cmd = run(['calcurse', '-a',
                    '--format-apt= - %m (from %S to %E)\n',
                    '--format-recur-apt= * %m (from %S to %E)\n'],
@@ -40,9 +41,8 @@ class Calcurse(MycroftSkill):
         day_apt = []
         timed_apt = []
 
-        re_day_apt = re.compile('^( \* )(?P<apt>.*)')
-        re_timed_apt = re.compile('^( - )(?P<apt>.[^(]*)\(from (?P<start>[0-9]+:[0-9]+) to (?P<end>[0-9]+:[0-9]+)\)')
-
+        re_day_apt = re.compile('^ \* (?P<apt>.*)')
+        re_timed_apt = re.compile('^ - (?P<apt>.[^(]*) \(from (?P<start>[0-9]+:[0-9]+) to (?P<end>[0-9]+:[0-9]+)\)')
 
         for apt in data:
             match_day_apt = re_day_apt.match(apt)
@@ -52,15 +52,18 @@ class Calcurse(MycroftSkill):
 
             match_timed_apt = re_timed_apt.match(apt)
             if match_timed_apt:
-                timed_apt.append([match_timed_apt.group('apt'),
-                                  match_timed_apt.group('start')])
+                timed_apt.append({'apt': match_timed_apt.group('apt'),
+                                  'start': match_timed_apt.group('start')})
 
         for apt in day_apt:
             self.speak_dialog('read.day_apt', {'apt': apt})
 
         for apt in timed_apt:
-            self.speak_dialog('read.timed_apt', {'apt': apt[0],
-                                                 'time': apt[1]})
+            self.speak_dialog('read.timed_apt', {'apt': apt['apt'],
+                                                 'start': apt['start']})
+
+        if len(day_apt) == 0 and len(timed_apt) == 0:
+            self.speak_dialog('no.apt')
 
 
 def create_skill():
